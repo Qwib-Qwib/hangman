@@ -1,5 +1,5 @@
 # hangman
-A simple hangman game with a save/load function.
+A simple hangman game with a save/load function. At the 12th mistake, the player loses the game.
 
 From the Odin Project:
 
