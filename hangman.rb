@@ -1,5 +1,103 @@
+# Methods related to the save management menu accessible from the Main menu.
+module SaveManagementMenu
+  class << self
+    def open_savefile_menu
+      Dir.children('saves').each { |savefile| puts savefile }
+      puts "Type 'load', 'erase' or 'quit' if you want to load a file, erase a file or return to the main menu."
+      menu_option = gets.chomp.downcase
+      evaluate_savefile_menu_option(menu_option)
+    end
+
+    def evaluate_savefile_menu_option(menu_option)
+      if %w[load erase quit].include?(menu_option)
+        case menu_option
+        when 'load' then open_load_menu
+        when 'erase' then open_erase_menu
+        when 'quit' then MainMenu.display_main_menu
+        end
+      else
+        reject_illegal_savefile_menu_options
+      end
+    end
+
+    def reject_illegal_savefile_menu_options
+      puts "Please type a valid option ('erase', 'load', 'quit')."
+      menu_option = gets.chomp.downcase
+      evaluate_savefile_menu_option(menu_option)
+    end
+
+    def open_load_menu
+      Dir.children('saves').each { |savefile| puts savefile }
+      puts "Type the name of the save file you'd like to load, or 'quit' to return to the previous menu."
+      save_file = gets.chomp.downcase
+      evaluate_load_menu_input(save_file)
+    end
+
+    def evaluate_load_menu_input(save_file)
+      if ["\"", "\'", '/', '\`'].any? { |char| save_file.include?(char) } || save_file == ''
+        forbid_special_characters_and_names('load')
+      elsif save_file == 'quit'
+        open_savefile_menu
+      elsif File.exist?("saves/#{save_file}") == false
+        reject_nonexistent_savefile('load')
+      else
+        load_savefile(save_file)
+      end
+    end
+
+    def load_savefile(save_file)
+      loaded_game = YAML.safe_load_file("saves/#{save_file}", permitted_classes: [GameInstance, Drawing])
+      loaded_game.start_game
+    end
+
+    def open_erase_menu
+      Dir.children('saves').each { |savefile| puts savefile }
+      puts "Type the name of the save file you'd like to erase, or 'quit' to return to the previous menu"
+      save_file = gets.chomp.downcase
+      evaluate_erase_menu_input(save_file)
+    end
+
+    def evaluate_erase_menu_input(save_file)
+      if ["\"", "\'", '/', '\`'].any? { |char| save_file.include?(char) } || save_file == ''
+        forbid_special_characters_and_names('erase')
+      elsif save_file == 'quit'
+        open_savefile_menu
+      elsif File.exist?("saves/#{save_file}") == false
+        reject_nonexistent_savefile('erase')
+      else
+        erase_savefile(save_file)
+      end
+    end
+
+    def forbid_special_characters_and_names(current_menu_option)
+      puts 'Invalid filename!'
+      puts "Forbidden characters: \" \' \` /"
+      puts 'Empty namefiles are also forbidden.'
+      case current_menu_option
+      when 'load' then open_load_menu
+      when 'erase' then open_erase_menu
+      end
+    end
+
+    def reject_nonexistent_savefile(current_menu_option)
+      puts 'No such save file!'
+      case current_menu_option
+      when 'load' then open_load_menu
+      when 'erase' then open_erase_menu
+      end
+    end
+
+    def erase_savefile(save_file)
+      File.delete("saves/#{save_file}")
+      puts 'File erased!'
+      open_erase_menu
+    end
+  end
+end
+
 # Print the main menu and deals with player interactions inside it.
 class MainMenu
+  include SaveManagementMenu
   class << self
     def display_main_menu
       saves_detected = print_main_menu_instruction
@@ -11,6 +109,7 @@ class MainMenu
     def print_main_menu_instruction
       puts 'Hey there, player! Fancy a game of Hangman?'
       puts 'Make your choice by choosing the corresponding number and pressing Enter!'
+      puts 'Whenever the game lets you type a keyword option, type them without quotation marks.'
       puts '1. New Game'
       print_with_saves_or_not
     end
@@ -36,7 +135,7 @@ class MainMenu
         current_game = GameInstance.new
         current_game.start_game
       elsif saves_detected == true
-        check_main_menu_input_with_saves(user_input)
+        check_main_menu_input_with_saves(user_input, saves_detected)
       elsif saves_detected == false
         check_main_menu_input_without_saves(user_input, saves_detected)
       end
@@ -44,7 +143,7 @@ class MainMenu
 
     def check_main_menu_input_with_saves(user_input, saves_detected)
       case user_input
-      when '2' then puts "Here's the save list!"
+      when '2' then SaveManagementMenu.open_savefile_menu
       when '3' then puts 'Quitting game now!'
       else
         puts 'Incorrect input!'
@@ -184,10 +283,21 @@ module GameInstanceInterface
   end
 
   def ask_for_guess
-    puts 'Type your guess!'
+    puts "Type your guess, 'save' if you want to save, or 'quit' to return to the main menu."
     guess = gets.downcase.chomp
-    guess = check_if_guess_letter(guess)
-    check_if_guess_already_given(guess)
+    check_input_validity(guess)
+  end
+
+  def check_input_validity(guess)
+    case guess.downcase
+    when 'quit' then MainMenu.display_main_menu
+    when 'save'
+      save_game
+      ask_for_guess
+    else
+      guess = check_if_guess_letter(guess)
+      check_if_guess_already_given(guess)
+    end
   end
 
   def check_if_guess_letter(guess)
@@ -205,6 +315,16 @@ module GameInstanceInterface
     end
     guess
   end
+
+  def print_end_message(mistakes_count)
+    case mistakes_count
+    when 12 then puts 'FAILURE'
+    else puts 'WOAH, INCREDIBLE!'
+    end
+    puts 'Press any key to continue.'
+    $stdin.getch
+    $stdin.getch while $stdin.ready? == true # Used to clear the buffer of any "parasite" input for keys generating multiple values.
+  end
 end
 
 # An instance of a new game, each keeping all relevant infos about their assigned game.
@@ -212,6 +332,7 @@ class GameInstance
   include GameInstanceInterface
   require 'io/console'
   require 'io/wait' # Required for the ready? method.
+  require 'yaml'
   @game_instances = 0
 
   class << self
@@ -241,6 +362,14 @@ class GameInstance
     MainMenu.display_main_menu
   end
 
+  def save_game
+    puts "Name your save, or type 'quit' to return to the game:"
+    save_name = gets.chomp.downcase
+    return if save_name == 'quit'
+
+    check_save_name_validity(save_name)
+  end
+
   private
 
   def pick_secret_word
@@ -252,16 +381,6 @@ class GameInstance
   def play_turn
     guess = ask_for_guess
     process_guess(guess)
-  end
-
-  def print_end_message(mistakes_count)
-    case mistakes_count
-    when 12 then puts 'FAILURE'
-    else puts 'WOAH, INCREDIBLE!'
-    end
-    puts 'Press any key to continue.'
-    $stdin.getch
-    $stdin.getch while $stdin.ready? == true # Used to clear the buffer of any "parasite" input for keys generating multiple values.
   end
 
   def process_guess(guess)
@@ -278,6 +397,19 @@ class GameInstance
 
   def guess_right?(guess)
     secret_word.include?(guess)
+  end
+
+  def check_save_name_validity(save_name)
+    if save_name == ''
+      puts 'Invalid filename! Your file must have a name.'
+      save_game
+    elsif ["\"", "\'", '/', '\`'].any? { |char| save_name.include?(char) } || %w[save erase load].any? { |keyword| save_name == keyword }
+      puts "Invalid filename!\nForbidden characters: \" \' \` /\nForbidden file names: save, erase, load"
+      save_game
+    else
+      File.open("saves/#{save_name}.yaml", 'w') { |save| YAML.dump(self, save) }
+      puts 'Game saved!'
+    end
   end
 end
 
