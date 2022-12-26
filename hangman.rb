@@ -1,9 +1,26 @@
+# Contains methods usable by interfaces across the whole game.
+module GeneralInterface
+  require 'io/wait' # Required for the ready? method.
+  require 'io/console' # Required for the getch method.
+
+  def press_any_key_to_continue
+    $stdin.getch
+    $stdin.getch while $stdin.ready? == true # Used to clear the buffer of any "parasite" input for keys generating multiple values.
+  end
+
+  def clear_screen
+    system('clear')
+  end
+end
+
 # Methods related to the save management menu accessible from the Main menu.
 module SaveManagementMenu
   class << self
+    include GeneralInterface
     def open_savefile_menu
+      clear_screen
       Dir.children('saves').each { |savefile| puts savefile }
-      puts "Type 'load', 'erase' or 'quit' if you want to load a file, erase a file or return to the main menu."
+      puts "\nType 'load', 'erase' or 'quit' if you want to load a file, erase a file or return to the main menu."
       menu_option = gets.chomp.downcase
       evaluate_savefile_menu_option(menu_option)
     end
@@ -27,21 +44,27 @@ module SaveManagementMenu
     end
 
     def open_load_menu
+      clear_screen
       Dir.children('saves').each { |savefile| puts savefile }
-      puts "Type the name of the save file you'd like to load, or 'quit' to return to the previous menu."
+      puts "\nType the name of the save file you'd like to load, or 'quit' to return to the previous menu."
       save_file = gets.chomp.downcase
       evaluate_load_menu_input(save_file)
     end
 
     def evaluate_load_menu_input(save_file)
-      if ["\"", "\'", '/', '\`'].any? { |char| save_file.include?(char) } || save_file == ''
-        forbid_special_characters_and_names('load')
-      elsif save_file == 'quit'
-        open_savefile_menu
-      elsif File.exist?("saves/#{save_file}") == false
-        reject_nonexistent_savefile('load')
-      else
-        load_savefile(save_file)
+      success_flag = 0 # Used to repeat the loop until the desired input is obtained.
+      until success_flag == 1
+        if ["\"", "\'", '/', '\`'].any? { |char| save_file.include?(char) } || save_file == ''
+          save_file = forbid_special_characters_and_names
+        elsif save_file == 'quit'
+          success_flag = 1
+          open_savefile_menu
+        elsif File.exist?("saves/#{save_file}") == false
+          save_file = reject_nonexistent_savefile
+        else
+          success_flag = 1
+          load_savefile(save_file)
+        end
       end
     end
 
@@ -51,45 +74,44 @@ module SaveManagementMenu
     end
 
     def open_erase_menu
+      clear_screen
       Dir.children('saves').each { |savefile| puts savefile }
-      puts "Type the name of the save file you'd like to erase, or 'quit' to return to the previous menu"
+      puts "\nType the name of the save file you'd like to erase, or 'quit' to return to the previous menu"
       save_file = gets.chomp.downcase
       evaluate_erase_menu_input(save_file)
     end
 
     def evaluate_erase_menu_input(save_file)
-      if ["\"", "\'", '/', '\`'].any? { |char| save_file.include?(char) } || save_file == ''
-        forbid_special_characters_and_names('erase')
-      elsif save_file == 'quit'
-        open_savefile_menu
-      elsif File.exist?("saves/#{save_file}") == false
-        reject_nonexistent_savefile('erase')
-      else
-        erase_savefile(save_file)
+      success_flag = 0
+      until success_flag == 1
+        if ["\"", "\'", '/', '\`'].any? { |char| save_file.include?(char) } || save_file == ''
+          save_file = forbid_special_characters_and_names
+        elsif save_file == 'quit'
+          success_flag = 1
+          open_savefile_menu
+        elsif File.exist?("saves/#{save_file}") == false
+          save_file = reject_nonexistent_savefile
+        else
+          success_flag = 1
+          erase_savefile(save_file)
+        end
       end
     end
 
-    def forbid_special_characters_and_names(current_menu_option)
-      puts 'Invalid filename!'
-      puts "Forbidden characters: \" \' \` /"
-      puts 'Empty namefiles are also forbidden.'
-      case current_menu_option
-      when 'load' then open_load_menu
-      when 'erase' then open_erase_menu
-      end
+    def forbid_special_characters_and_names
+      puts "Invalid filename!\nForbidden characters: \" \' \` /\nEmpty file names are also forbidden."
+      gets.chomp.downcase
     end
 
-    def reject_nonexistent_savefile(current_menu_option)
+    def reject_nonexistent_savefile
       puts 'No such save file!'
-      case current_menu_option
-      when 'load' then open_load_menu
-      when 'erase' then open_erase_menu
-      end
+      gets.chomp.downcase
     end
 
     def erase_savefile(save_file)
       File.delete("saves/#{save_file}")
-      puts 'File erased!'
+      puts "File erased!\nPress any key to continue."
+      press_any_key_to_continue
       open_erase_menu
     end
   end
@@ -97,9 +119,12 @@ end
 
 # Print the main menu and deals with player interactions inside it.
 class MainMenu
+  include GeneralInterface
   include SaveManagementMenu
   class << self
+    include GeneralInterface
     def display_main_menu
+      clear_screen
       saves_detected = print_main_menu_instruction
       main_menu_user_input(saves_detected)
     end
@@ -119,8 +144,7 @@ class MainMenu
         puts '2. Quit'
         false
       else
-        puts '2. Load Game'
-        puts '3. Quit'
+        puts "2. Load Game\n3. Quit"
         true
       end
     end
@@ -259,11 +283,12 @@ class Drawing
   end
 end
 
-# Tasked with drawing the interface for each game.
-module GameInstanceInterface
-  def print_game_info(secret_word, correct_guesses, wrong_guesses, drawing)
+# Tasked with drawing the main interface for each game turn.
+module GameTurnInterface
+  def print_game_info(secret_word, correct_guesses, wrong_guesses, drawing, latest_result_message)
     print_word(secret_word, correct_guesses)
     drawing.print_drawing
+    puts latest_result_message if latest_result_message != ''
     print_wrong_guesses(wrong_guesses)
   end
 
@@ -290,10 +315,10 @@ module GameInstanceInterface
 
   def check_input_validity(guess)
     case guess.downcase
-    when 'quit' then MainMenu.display_main_menu
+    when 'quit' then 'quit'
     when 'save'
       save_game
-      ask_for_guess
+      'save'
     else
       guess = check_if_guess_letter(guess)
       check_if_guess_already_given(guess)
@@ -309,7 +334,7 @@ module GameInstanceInterface
   end
 
   def check_if_guess_already_given(guess)
-    if correct_guesses.include?(guess) || wrong_guesses.include?(guess)
+    while correct_guesses.include?(guess) || wrong_guesses.include?(guess)
       puts 'You already gave that one. ;)'
       guess = gets.downcase.chomp
     end
@@ -322,16 +347,14 @@ module GameInstanceInterface
     else puts 'WOAH, INCREDIBLE!'
     end
     puts 'Press any key to continue.'
-    $stdin.getch
-    $stdin.getch while $stdin.ready? == true # Used to clear the buffer of any "parasite" input for keys generating multiple values.
+    press_any_key_to_continue
   end
 end
 
 # An instance of a new game, each keeping all relevant infos about their assigned game.
 class GameInstance
-  include GameInstanceInterface
-  require 'io/console'
-  require 'io/wait' # Required for the ready? method.
+  include GeneralInterface
+  include GameTurnInterface
   require 'yaml'
   @game_instances = 0
 
@@ -347,18 +370,24 @@ class GameInstance
     @correct_guesses = []
     @wrong_guesses = []
     @drawing = Drawing.new
+    @latest_result_message = ''
   end
 
   attr_reader :secret_word
-  attr_accessor :mistakes_count, :correct_guesses, :wrong_guesses, :drawing
+  attr_accessor :mistakes_count, :correct_guesses, :wrong_guesses, :drawing, :latest_result_message
 
   def start_game
-    while mistakes_count < 12 && (secret_word.split('').uniq - correct_guesses).empty? == false
-      print_game_info(secret_word, correct_guesses, wrong_guesses, drawing)
-      play_turn
+    clear_screen
+    quit_flag = 0
+    while (mistakes_count < 12 && (secret_word.split('').uniq - correct_guesses).empty? == false) && quit_flag != 1
+      print_game_info(secret_word, correct_guesses, wrong_guesses, drawing, latest_result_message)
+      quit_flag = play_turn
+      clear_screen
     end
-    drawing.print_drawing if mistakes_count == 12
-    print_end_message(mistakes_count)
+    if quit_flag != 1
+      drawing.print_drawing if mistakes_count == 12
+      print_end_message(mistakes_count)
+    end
     MainMenu.display_main_menu
   end
 
@@ -380,15 +409,19 @@ class GameInstance
 
   def play_turn
     guess = ask_for_guess
-    process_guess(guess)
+    case guess
+    when 'quit' then 1
+    when 'save' then play_turn
+    else process_guess(guess)
+    end
   end
 
   def process_guess(guess)
     if guess_right?(guess) == true
-      puts 'Good job!'
+      @latest_result_message = 'Good job!'
       correct_guesses.push(guess)
     else
-      puts 'What a shame...'
+      @latest_result_message = 'What a shame...'
       self.mistakes_count += 1
       wrong_guesses.push(guess)
       drawing.edit_drawing(mistakes_count)
