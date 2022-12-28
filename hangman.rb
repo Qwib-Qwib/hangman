@@ -53,24 +53,26 @@ module SaveManagementMenu
 
     def evaluate_load_menu_input(save_file)
       success_flag = 0 # Used to repeat the loop until the desired input is obtained.
-      until success_flag == 1
-        if ["\"", "\'", '/', '\`'].any? { |char| save_file.include?(char) } || save_file == ''
-          save_file = forbid_special_characters_and_names
-        elsif save_file == 'quit'
-          success_flag = 1
-          open_savefile_menu
-        elsif File.exist?("saves/#{save_file}") == false
-          save_file = reject_nonexistent_savefile
-        else
-          success_flag = 1
-          load_savefile(save_file)
-        end
-      end
+      success_flag = load_menu_input_evaluation_loop(save_file) until success_flag == 1
     end
 
     def load_savefile(save_file)
       loaded_game = YAML.safe_load_file("saves/#{save_file}", permitted_classes: [GameInstance, Drawing])
       loaded_game.start_game
+      1
+    end
+
+    def load_menu_input_evaluation_loop(save_file)
+      if ["\"", "\'", '/', "\`"].any? { |char| save_file.include?(char) } || save_file == ''
+        save_file = forbid_special_characters_and_names('load')
+      elsif save_file == 'quit'
+        open_savefile_menu
+        1
+      elsif File.exist?("saves/#{save_file}") == false
+        save_file = reject_nonexistent_savefile('load')
+      else
+        load_savefile(save_file)
+      end
     end
 
     def open_erase_menu
@@ -83,29 +85,23 @@ module SaveManagementMenu
 
     def evaluate_erase_menu_input(save_file)
       success_flag = 0
-      until success_flag == 1
-        if ["\"", "\'", '/', '\`'].any? { |char| save_file.include?(char) } || save_file == ''
-          save_file = forbid_special_characters_and_names
-        elsif save_file == 'quit'
-          success_flag = 1
-          open_savefile_menu
-        elsif File.exist?("saves/#{save_file}") == false
-          save_file = reject_nonexistent_savefile
-        else
-          success_flag = 1
-          erase_savefile(save_file)
-        end
+      success_flag = erase_menu_input_evaluation_loop(save_file) until success_flag == 1
+    end
+
+    def forbid_special_characters_and_names(menu_option)
+      puts "Invalid filename!\nForbidden characters: \" \' \` /\nEmpty file names are also forbidden."
+      case menu_option
+      when 'load' then load_menu_input_evaluation_loop(gets.chomp.downcase)
+      when 'erase' then erase_menu_input_evaluation_loop(gets.chomp.downcase)
       end
     end
 
-    def forbid_special_characters_and_names
-      puts "Invalid filename!\nForbidden characters: \" \' \` /\nEmpty file names are also forbidden."
-      gets.chomp.downcase
-    end
-
-    def reject_nonexistent_savefile
+    def reject_nonexistent_savefile(menu_option)
       puts 'No such save file!'
-      gets.chomp.downcase
+      case menu_option
+      when 'load' then load_menu_input_evaluation_loop(gets.chomp.downcase)
+      when 'erase' then erase_menu_input_evaluation_loop(gets.chomp.downcase)
+      end
     end
 
     def erase_savefile(save_file)
@@ -113,6 +109,20 @@ module SaveManagementMenu
       puts "File erased!\nPress any key to continue."
       press_any_key_to_continue
       open_erase_menu
+      1
+    end
+
+    def erase_menu_input_evaluation_loop(save_file)
+      if ["\"", "\'", '/', "\`"].any? { |char| save_file.include?(char) } || save_file == ''
+        save_file = forbid_special_characters_and_names('erase')
+      elsif save_file == 'quit'
+        open_savefile_menu
+        1
+      elsif File.exist?("saves/#{save_file}") == false
+        save_file = reject_nonexistent_savefile('erase')
+      else
+        erase_savefile(save_file)
+      end
     end
   end
 end
@@ -379,6 +389,7 @@ class GameInstance
   def start_game
     clear_screen
     quit_flag = 0
+    # The following loop occurs until player wins, loses or decides to quit.
     while (mistakes_count < 12 && (secret_word.split('').uniq - correct_guesses).empty? == false) && quit_flag != 1
       print_game_info(secret_word, correct_guesses, wrong_guesses, drawing, latest_result_message)
       quit_flag = play_turn
@@ -410,7 +421,7 @@ class GameInstance
   def play_turn
     guess = ask_for_guess
     case guess
-    when 'quit' then 1
+    when 'quit' then 1 # Updates quit_flag, signals player wants to quit.
     when 'save' then play_turn
     else process_guess(guess)
     end
@@ -436,7 +447,7 @@ class GameInstance
     if save_name == ''
       puts 'Invalid filename! Your file must have a name.'
       save_game
-    elsif ["\"", "\'", '/', '\`'].any? { |char| save_name.include?(char) } || %w[save erase load].any? { |keyword| save_name == keyword }
+    elsif ["\"", "\'", '/', "\`"].any? { |char| save_name.include?(char) } || %w[save erase load].any? { |keyword| save_name == keyword }
       puts "Invalid filename!\nForbidden characters: \" \' \` /\nForbidden file names: save, erase, load"
       save_game
     else
