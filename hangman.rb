@@ -351,6 +351,11 @@ module GameTurnInterface
     guess
   end
 
+  def print_end_screen
+    drawing.print_drawing if mistakes_count == 12
+    print_end_message(mistakes_count)
+  end
+
   def print_end_message(mistakes_count)
     case mistakes_count
     when 12 then puts 'FAILURE'
@@ -391,14 +396,9 @@ class GameInstance
     quit_flag = 0
     # The following loop occurs until player wins, loses or decides to quit.
     while (mistakes_count < 12 && (secret_word.split('').uniq - correct_guesses).empty? == false) && quit_flag != 1
-      print_game_info(secret_word, correct_guesses, wrong_guesses, drawing, latest_result_message)
-      quit_flag = play_turn
-      clear_screen
+      quit_flag = setup_new_turn
     end
-    if quit_flag != 1
-      drawing.print_drawing if mistakes_count == 12
-      print_end_message(mistakes_count)
-    end
+    print_end_screen if quit_flag != 1
     MainMenu.display_main_menu
   end
 
@@ -416,6 +416,13 @@ class GameInstance
     dictionary = File.open('google-10000-english-no-swears.txt')
     valid_words = dictionary.readlines.map(&:chomp).delete_if { |word| word.length < 5 || word.length > 12 }
     valid_words.sample
+  end
+
+  def setup_new_turn
+    print_game_info(secret_word, correct_guesses, wrong_guesses, drawing, latest_result_message)
+    quit_flag = play_turn
+    clear_screen
+    quit_flag
   end
 
   def play_turn
