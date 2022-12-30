@@ -366,6 +366,15 @@ module GameTurnInterface
     puts 'Press any key to continue.'
     press_any_key_to_continue
   end
+
+  def save_name_validity_response(validity)
+    case validity
+    when 'empty' then puts 'Invalid filename! Your file must have a name.'
+    when 'forbidden'
+      puts "Invalid filename!\nForbidden characters: \" \' \` /\nForbidden file names: save, erase, load"
+    when 'correct' then puts 'Game saved!'
+    end
+  end
 end
 
 # An instance of a new game, each keeping all relevant infos about their assigned game.
@@ -454,14 +463,14 @@ class GameInstance
 
   def check_save_name_validity(save_name)
     if save_name == ''
-      puts 'Invalid filename! Your file must have a name.'
+      save_name_validity_response('empty')
       save_game
     elsif ["\"", "\'", '/', "\`"].any? { |char| save_name.include?(char) } || %w[save erase load].any? { |keyword| save_name == keyword }
-      puts "Invalid filename!\nForbidden characters: \" \' \` /\nForbidden file names: save, erase, load"
+      save_name_validity_response('forbidden')
       save_game
     else
       File.open("saves/#{save_name}.yaml", 'w') { |save| YAML.dump(self, save) }
-      puts 'Game saved!'
+      save_name_validity_response('correct')
     end
   end
 end
