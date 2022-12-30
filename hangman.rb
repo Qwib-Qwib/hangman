@@ -1,3 +1,5 @@
+# frozen_string_literal: false
+
 # Contains methods usable by interfaces across the whole game.
 module GeneralInterface
   require 'io/wait' # Required for the ready? method.
