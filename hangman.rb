@@ -297,14 +297,14 @@ end
 
 # Tasked with drawing the main interface for each game turn.
 module GameTurnInterface
-  def print_game_info(secret_word, correct_guesses, wrong_guesses, drawing, latest_result_message)
-    print_word(secret_word, correct_guesses)
+  def print_game_info
+    print_word
     drawing.print_drawing
     puts latest_result_message if latest_result_message != ''
-    print_wrong_guesses(wrong_guesses)
+    print_wrong_guesses
   end
 
-  def print_word(secret_word, correct_guesses)
+  def print_word
     secret_word.each_char do |char|
       if correct_guesses.include?(char)
         print " #{char} "
@@ -315,8 +315,13 @@ module GameTurnInterface
     puts ''
   end
 
-  def print_wrong_guesses(wrong_guesses)
+  def print_wrong_guesses
     puts "Incorrect guesses so far: #{wrong_guesses.join(', ')}"
+  end
+
+  def refresh_game_screen
+    clear_screen
+    print_game_info
   end
 
   def ask_for_guess
@@ -367,7 +372,12 @@ module GameTurnInterface
     press_any_key_to_continue
   end
 
+  def print_save_menu_message
+    puts "Name your save, or type 'quit' to return to the game:"
+  end
+
   def save_name_validity_response(validity)
+    refresh_game_screen
     case validity
     when 'empty' then puts 'Invalid filename! Your file must have a name.'
     when 'forbidden'
@@ -414,7 +424,7 @@ class GameInstance
   end
 
   def save_game
-    puts "Name your save, or type 'quit' to return to the game:"
+    print_save_menu_message
     save_name = gets.chomp.downcase
     return if save_name == 'quit'
 
@@ -430,7 +440,7 @@ class GameInstance
   end
 
   def setup_new_turn
-    print_game_info(secret_word, correct_guesses, wrong_guesses, drawing, latest_result_message)
+    print_game_info
     quit_flag = play_turn
     clear_screen
     quit_flag
