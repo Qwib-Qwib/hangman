@@ -21,7 +21,7 @@ module SaveManagementMenu
     include GeneralInterface
     def open_savefile_menu
       clear_screen
-      Dir.children('saves').each { |savefile| puts savefile }
+      Dir.children('saves').each { |savefile| puts savefile.delete_suffix('.yaml') }
       puts "\nType 'load', 'erase' or 'quit' if you want to load a file, erase a file or return to the main menu."
       menu_option = gets.chomp.downcase
       evaluate_savefile_menu_option(menu_option)
@@ -47,7 +47,7 @@ module SaveManagementMenu
 
     def open_load_menu
       clear_screen
-      Dir.children('saves').each { |savefile| puts savefile }
+      Dir.children('saves').each { |savefile| puts savefile.delete_suffix('.yaml') }
       puts "\nType the name of the save file you'd like to load, or 'quit' to return to the previous menu."
       save_file = gets.chomp.downcase
       evaluate_load_menu_input(save_file)
@@ -65,21 +65,21 @@ module SaveManagementMenu
     end
 
     def load_menu_input_evaluation_loop(save_file)
-      if ["\"", "\'", '/', "\`"].any? { |char| save_file.include?(char) } || save_file == ''
+      if ["\"", "\'", '/', "\`", "\\"].any? { |char| save_file.include?(char) } || save_file == ''
         save_file = forbid_special_characters_and_names('load')
       elsif save_file == 'quit'
         open_savefile_menu
         1
-      elsif File.exist?("saves/#{save_file}") == false
+      elsif File.exist?("saves/#{save_file}.yaml") == false
         save_file = reject_nonexistent_savefile('load')
       else
-        load_savefile(save_file)
+        load_savefile(save_file.concat('.yaml'))
       end
     end
 
     def open_erase_menu
       clear_screen
-      Dir.children('saves').each { |savefile| puts savefile }
+      Dir.children('saves').each { |savefile| puts savefile.delete_suffix('.yaml') }
       puts "\nType the name of the save file you'd like to erase, or 'quit' to return to the previous menu"
       save_file = gets.chomp.downcase
       evaluate_erase_menu_input(save_file)
@@ -91,7 +91,7 @@ module SaveManagementMenu
     end
 
     def forbid_special_characters_and_names(menu_option)
-      puts "Invalid filename!\nForbidden characters: \" \' \` /\nEmpty file names are also forbidden."
+      puts "Invalid filename!\nForbidden characters: \" \' \` \\ /\nEmpty file names are also forbidden."
       case menu_option
       when 'load' then load_menu_input_evaluation_loop(gets.chomp.downcase)
       when 'erase' then erase_menu_input_evaluation_loop(gets.chomp.downcase)
@@ -115,15 +115,15 @@ module SaveManagementMenu
     end
 
     def erase_menu_input_evaluation_loop(save_file)
-      if ["\"", "\'", '/', "\`"].any? { |char| save_file.include?(char) } || save_file == ''
+      if ["\"", "\'", '/', "\`", "\\"].any? { |char| save_file.include?(char) } || save_file == ''
         save_file = forbid_special_characters_and_names('erase')
       elsif save_file == 'quit'
         open_savefile_menu
         1
-      elsif File.exist?("saves/#{save_file}") == false
+      elsif File.exist?("saves/#{save_file}.yaml") == false
         save_file = reject_nonexistent_savefile('erase')
       else
-        erase_savefile(save_file)
+        erase_savefile(save_file.concat('.yaml'))
       end
     end
   end
