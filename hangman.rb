@@ -324,38 +324,15 @@ module GameTurnInterface
     print_game_info
   end
 
-  def ask_for_guess
+  def print_guess_input_request
     puts "Type your guess, 'save' if you want to save, or 'quit' to return to the main menu."
-    guess = gets.downcase.chomp
-    check_input_validity(guess)
   end
 
-  def check_input_validity(guess)
-    case guess.downcase
-    when 'quit' then 'quit'
-    when 'save'
-      save_game
-      'save'
-    else
-      guess = check_if_guess_letter(guess)
-      check_if_guess_already_given(guess)
+  def print_guess_rejection_message(rejection_cause)
+    case rejection_cause
+    when 'not a letter' then puts 'Incorrect input! Your guess must be a letter.'
+    when 'already given' then puts 'You already gave that one. ;)'
     end
-  end
-
-  def check_if_guess_letter(guess)
-    while guess.length != 1 || guess.codepoints[0] < 97 || guess.codepoints[0] > 122
-      puts 'Incorrect input! Your guess must be a letter.'
-      guess = gets.downcase.chomp
-    end
-    guess
-  end
-
-  def check_if_guess_already_given(guess)
-    while correct_guesses.include?(guess) || wrong_guesses.include?(guess)
-      puts 'You already gave that one. ;)'
-      guess = gets.downcase.chomp
-    end
-    guess
   end
 
   def print_end_screen
@@ -387,10 +364,92 @@ module GameTurnInterface
   end
 end
 
-# An instance of a new game, each keeping all relevant infos about their assigned game.
+# Methods verifying user inputs for correctness and redirection during an instance of a game.
+module GameUserInputChecking
+  def check_input_validity(guess)
+    case guess.downcase
+    when 'quit' then 'quit'
+    when 'save'
+      save_game
+      'save' # Informs the calling method it should play another turn.
+    else
+      check_validity_as_guess(guess)
+    end
+  end
+
+  def check_validity_as_guess(guess)
+    if letter?(guess) == true && already_given?(guess) == false
+      guess
+    elsif letter?(guess) == false
+      reject_guess_and_ask_again('not a letter')
+    elsif already_given?(guess) == true
+      reject_guess_and_ask_again('already given')
+    end
+  end
+
+  def letter?(guess)
+    if guess.length != 1 || guess.codepoints[0] < 97 || guess.codepoints[0] > 122
+      false
+    else
+      true
+    end
+  end
+
+  def already_given?(guess)
+    if correct_guesses.include?(guess) || wrong_guesses.include?(guess)
+      true
+    else
+      false
+    end
+  end
+
+  def process_guess(guess)
+    if guess_right?(guess) == true
+      @latest_result_message = 'Good job!'
+      correct_guesses.push(guess)
+    else
+      @latest_result_message = 'What a shame...'
+      self.mistakes_count += 1
+      wrong_guesses.push(guess)
+      drawing.edit_drawing(mistakes_count)
+    end
+  end
+
+  def guess_right?(guess)
+    secret_word.include?(guess)
+  end
+end
+
+# Handles the internal processes of the saving menu.
+module SavingMenu
+  def save_game
+    print_save_menu_message
+    save_name = gets.chomp.downcase
+    return if save_name == 'quit'
+
+    check_save_name_validity(save_name)
+  end
+
+  def check_save_name_validity(save_name)
+    if save_name == ''
+      save_name_validity_response('empty')
+      save_game
+    elsif ["\"", "\'", '/', "\`"].any? { |char| save_name.include?(char) } || %w[save erase load].any? { |keyword| save_name == keyword }
+      save_name_validity_response('forbidden')
+      save_game
+    else
+      File.open("saves/#{save_name}.yaml", 'w') { |save| YAML.dump(self, save) }
+      save_name_validity_response('correct')
+    end
+  end
+end
+
+# An instance of a new game. Keeps all relevant infos about their game. Handles basic turn routine.
 class GameInstance
   include GeneralInterface
+  include GameUserInputChecking
   include GameTurnInterface
+  include SavingMenu
   require 'yaml'
   @game_instances = 0
 
@@ -423,14 +482,6 @@ class GameInstance
     MainMenu.display_main_menu
   end
 
-  def save_game
-    print_save_menu_message
-    save_name = gets.chomp.downcase
-    return if save_name == 'quit'
-
-    check_save_name_validity(save_name)
-  end
-
   private
 
   def pick_secret_word
@@ -450,38 +501,21 @@ class GameInstance
     guess = ask_for_guess
     case guess
     when 'quit' then 1 # Updates quit_flag, signals player wants to quit.
-    when 'save' then play_turn
+    when 'save' then play_turn # The saving menu has previously been called, a new turn is then played.
     else process_guess(guess)
     end
   end
 
-  def process_guess(guess)
-    if guess_right?(guess) == true
-      @latest_result_message = 'Good job!'
-      correct_guesses.push(guess)
-    else
-      @latest_result_message = 'What a shame...'
-      self.mistakes_count += 1
-      wrong_guesses.push(guess)
-      drawing.edit_drawing(mistakes_count)
-    end
+  def ask_for_guess
+    print_guess_input_request
+    guess = gets.downcase.chomp
+    check_input_validity(guess)
   end
 
-  def guess_right?(guess)
-    secret_word.include?(guess)
-  end
-
-  def check_save_name_validity(save_name)
-    if save_name == ''
-      save_name_validity_response('empty')
-      save_game
-    elsif ["\"", "\'", '/', "\`"].any? { |char| save_name.include?(char) } || %w[save erase load].any? { |keyword| save_name == keyword }
-      save_name_validity_response('forbidden')
-      save_game
-    else
-      File.open("saves/#{save_name}.yaml", 'w') { |save| YAML.dump(self, save) }
-      save_name_validity_response('correct')
-    end
+  def reject_guess_and_ask_again(rejection_cause)
+    print_guess_rejection_message(rejection_cause)
+    guess = ask_for_guess
+    check_input_validity(guess)
   end
 end
 
