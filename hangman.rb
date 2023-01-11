@@ -15,32 +15,84 @@ module GeneralInterface
   end
 end
 
+# Methods verifying user inputs for correctness and redirection, and used by various types of interfaces.
+module SharedInputChecking
+  def illegal_character?(user_input)
+    ["\"", "\'", '/', "\`", "\\"].any? { |char| user_input.include?(char) }
+  end
+end
+
+# Methods verifying user inputs for correctness and redirection when browsing the save management menu.
+module SaveManagementMenuInputChecking
+  include SharedInputChecking
+  def evaluate_savefile_menu_option(menu_option)
+    if %w[load erase quit].include?(menu_option)
+      case menu_option
+      when 'load' then open_load_menu
+      when 'erase' then open_erase_menu
+      when 'quit' then MainMenu.display_main_menu
+      end
+    else
+      reject_illegal_savefile_menu_options
+    end
+  end
+
+  def reject_illegal_savefile_menu_options
+    puts "Please type a valid option ('erase', 'load', 'quit')."
+    menu_option = gets.chomp.downcase
+    evaluate_savefile_menu_option(menu_option)
+  end
+
+  def evaluate_load_menu_input(save_file)
+    if illegal_character?(save_file) == true || save_file.empty?
+      forbid_special_characters_and_names('load')
+    elsif save_file == 'quit'
+      open_savefile_menu
+    elsif File.exist?("saves/#{save_file}.yaml") == false
+      reject_nonexistent_savefile('load')
+    else
+      load_savefile(save_file.concat('.yaml'))
+    end
+  end
+
+  def evaluate_erase_menu_input(save_file)
+    if illegal_character?(save_file) || save_file.empty?
+      forbid_special_characters_and_names('erase')
+    elsif save_file == 'quit'
+      open_savefile_menu
+    elsif File.exist?("saves/#{save_file}.yaml") == false
+      reject_nonexistent_savefile('erase')
+    else
+      erase_savefile(save_file.concat('.yaml'))
+    end
+  end
+
+  def forbid_special_characters_and_names(menu_option)
+    puts "Invalid filename!\nForbidden characters: \" \' \` \\ /\nEmpty file names are also forbidden."
+    case menu_option
+    when 'load' then evaluate_load_menu_input(gets.chomp.downcase)
+    when 'erase' then evaluate_erase_menu_input(gets.chomp.downcase)
+    end
+  end
+
+  def reject_nonexistent_savefile(menu_option)
+    puts 'No such save file!'
+    case menu_option
+    when 'load' then evaluate_load_menu_input(gets.chomp.downcase)
+    when 'erase' then evaluate_erase_menu_input(gets.chomp.downcase)
+    end
+  end
+end
+
 # Methods related to the save management menu accessible from the Main menu.
 module SaveManagementMenu
   class << self
     include GeneralInterface
+    include SaveManagementMenuInputChecking
     def open_savefile_menu
       clear_screen
       Dir.children('saves').each { |savefile| puts savefile.delete_suffix('.yaml') }
       puts "\nType 'load', 'erase' or 'quit' if you want to load a file, erase a file or return to the main menu."
-      menu_option = gets.chomp.downcase
-      evaluate_savefile_menu_option(menu_option)
-    end
-
-    def evaluate_savefile_menu_option(menu_option)
-      if %w[load erase quit].include?(menu_option)
-        case menu_option
-        when 'load' then open_load_menu
-        when 'erase' then open_erase_menu
-        when 'quit' then MainMenu.display_main_menu
-        end
-      else
-        reject_illegal_savefile_menu_options
-      end
-    end
-
-    def reject_illegal_savefile_menu_options
-      puts "Please type a valid option ('erase', 'load', 'quit')."
       menu_option = gets.chomp.downcase
       evaluate_savefile_menu_option(menu_option)
     end
@@ -53,28 +105,9 @@ module SaveManagementMenu
       evaluate_load_menu_input(save_file)
     end
 
-    def evaluate_load_menu_input(save_file)
-      success_flag = 0 # Used to repeat the loop until the desired input is obtained.
-      success_flag = load_menu_input_evaluation_loop(save_file) until success_flag == 1
-    end
-
     def load_savefile(save_file)
       loaded_game = YAML.safe_load_file("saves/#{save_file}", permitted_classes: [GameInstance, Drawing])
       loaded_game.start_game
-      1
-    end
-
-    def load_menu_input_evaluation_loop(save_file)
-      if ["\"", "\'", '/', "\`", "\\"].any? { |char| save_file.include?(char) } || save_file == ''
-        save_file = forbid_special_characters_and_names('load')
-      elsif save_file == 'quit'
-        open_savefile_menu
-        1
-      elsif File.exist?("saves/#{save_file}.yaml") == false
-        save_file = reject_nonexistent_savefile('load')
-      else
-        load_savefile(save_file.concat('.yaml'))
-      end
     end
 
     def open_erase_menu
@@ -85,46 +118,11 @@ module SaveManagementMenu
       evaluate_erase_menu_input(save_file)
     end
 
-    def evaluate_erase_menu_input(save_file)
-      success_flag = 0
-      success_flag = erase_menu_input_evaluation_loop(save_file) until success_flag == 1
-    end
-
-    def forbid_special_characters_and_names(menu_option)
-      puts "Invalid filename!\nForbidden characters: \" \' \` \\ /\nEmpty file names are also forbidden."
-      case menu_option
-      when 'load' then load_menu_input_evaluation_loop(gets.chomp.downcase)
-      when 'erase' then erase_menu_input_evaluation_loop(gets.chomp.downcase)
-      end
-    end
-
-    def reject_nonexistent_savefile(menu_option)
-      puts 'No such save file!'
-      case menu_option
-      when 'load' then load_menu_input_evaluation_loop(gets.chomp.downcase)
-      when 'erase' then erase_menu_input_evaluation_loop(gets.chomp.downcase)
-      end
-    end
-
     def erase_savefile(save_file)
       File.delete("saves/#{save_file}")
       puts "File erased!\nPress any key to continue."
       press_any_key_to_continue
       open_erase_menu
-      1
-    end
-
-    def erase_menu_input_evaluation_loop(save_file)
-      if ["\"", "\'", '/', "\`", "\\"].any? { |char| save_file.include?(char) } || save_file == ''
-        save_file = forbid_special_characters_and_names('erase')
-      elsif save_file == 'quit'
-        open_savefile_menu
-        1
-      elsif File.exist?("saves/#{save_file}.yaml") == false
-        save_file = reject_nonexistent_savefile('erase')
-      else
-        erase_savefile(save_file.concat('.yaml'))
-      end
     end
   end
 end
@@ -154,7 +152,7 @@ class MainMenu
     def print_with_saves_or_not
       if Dir.empty?('saves')
         puts '2. Quit'
-        false
+        false # The boolean is used to inform display_main_menu whether saves are present or not.
       else
         puts "2. Load Game\n3. Quit"
         true
@@ -422,6 +420,7 @@ end
 
 # Handles the internal processes of the saving menu.
 module SavingMenu
+  include SharedInputChecking
   def save_game
     print_save_menu_message
     save_name = gets.chomp.downcase
@@ -431,10 +430,10 @@ module SavingMenu
   end
 
   def check_save_name_validity(save_name)
-    if save_name == ''
+    if save_name.empty?
       save_name_validity_response('empty')
       save_game
-    elsif ["\"", "\'", '/', "\`"].any? { |char| save_name.include?(char) } || %w[save erase load].any? { |keyword| save_name == keyword }
+    elsif illegal_character?(save_name) || %w[save erase load].any? { |keyword| save_name == keyword }
       save_name_validity_response('forbidden')
       save_game
     else
