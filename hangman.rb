@@ -5,9 +5,12 @@ module GeneralInterface
   require 'io/wait' # Required for the ready? method.
   require 'io/console' # Required for the getch method.
 
+  private
+
   def press_any_key_to_continue
     $stdin.getch
-    $stdin.getch while $stdin.ready? == true # Used to clear the buffer of any "parasite" input for keys generating multiple values.
+    # The next line is used to clear the buffer of any "parasite" input for keys generating multiple values.
+    $stdin.getch while $stdin.ready? == true
   end
 
   def clear_screen
@@ -17,6 +20,8 @@ end
 
 # Methods verifying user inputs for correctness and redirection, and used by various types of interfaces.
 module SharedInputChecking
+  private
+
   def illegal_character?(user_input)
     ["\"", "\'", '/', "\`", "\\"].any? { |char| user_input.include?(char) }
   end
@@ -25,6 +30,9 @@ end
 # Methods verifying user inputs for correctness and redirection when browsing the save management menu.
 module SaveManagementMenuInputChecking
   include SharedInputChecking
+
+  private
+
   def evaluate_savefile_menu_option(menu_option)
     if %w[load erase quit].include?(menu_option)
       case menu_option
@@ -129,8 +137,6 @@ end
 
 # Print the main menu and deals with player interactions inside it.
 class MainMenu
-  include GeneralInterface
-  include SaveManagementMenu
   class << self
     include GeneralInterface
     def display_main_menu
@@ -177,7 +183,7 @@ class MainMenu
 
     def check_main_menu_input_with_saves(user_input, saves_detected)
       case user_input
-      when '2' then SaveManagementMenu.open_savefile_menu
+      when '2' then SaveManagementMenu.open_savefile_menu # The reference makes including the module useless.
       when '3' then puts 'Quitting game now!'
       else
         puts 'Incorrect input!'
@@ -295,6 +301,8 @@ end
 
 # Tasked with drawing the main interface for each game turn.
 module GameTurnInterface
+  private
+
   def print_game_info
     print_word
     drawing.print_drawing
@@ -364,6 +372,8 @@ end
 
 # Methods verifying user inputs for correctness and redirection during an instance of a game.
 module GameUserInputChecking
+  private
+
   def check_input_validity(guess)
     case guess.downcase
     when 'quit' then 'quit'
@@ -421,6 +431,9 @@ end
 # Handles the internal processes of the saving menu.
 module SavingMenu
   include SharedInputChecking
+
+  private
+
   def save_game
     print_save_menu_message
     save_name = gets.chomp.downcase
