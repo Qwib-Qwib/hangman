@@ -368,7 +368,10 @@ module GameTurnInterface
     when 'empty' then puts 'Invalid filename! Your file must have a name.'
     when 'forbidden'
       puts "Invalid filename!\nForbidden characters: \" \' \` /\nForbidden file names: save, erase, load"
-    when 'correct' then puts 'Game saved!'
+    when 'correct'
+      clear_screen
+      puts 'Game saved!'
+      print_game_info
     end
   end
 end
@@ -530,8 +533,7 @@ class GameInstance
 
   def reject_guess_and_ask_again(rejection_cause)
     print_guess_rejection_message(rejection_cause)
-    guess = ask_for_guess
-    check_input_validity(guess)
+    ask_for_guess
   end
 end
 
