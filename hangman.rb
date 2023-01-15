@@ -16,6 +16,11 @@ module GeneralInterface
   def clear_screen
     system('clear')
   end
+
+  def refresh_save_menus_info
+    clear_screen
+    Dir.children('saves').each { |savefile| puts savefile.delete_suffix('.yaml') }
+  end
 end
 
 # Methods verifying user inputs for correctness and redirection, and used by various types of interfaces.
@@ -98,16 +103,14 @@ module SaveManagementMenu
     include GeneralInterface
     include SaveManagementMenuInputChecking
     def open_savefile_menu
-      clear_screen
-      Dir.children('saves').each { |savefile| puts savefile.delete_suffix('.yaml') }
+      refresh_save_menus_info
       puts "\nType 'load', 'erase' or 'quit' if you want to load a file, erase a file or return to the main menu."
       menu_option = gets.chomp.downcase
       evaluate_savefile_menu_option(menu_option)
     end
 
     def open_load_menu
-      clear_screen
-      Dir.children('saves').each { |savefile| puts savefile.delete_suffix('.yaml') }
+      refresh_save_menus_info
       puts "\nType the name of the save file you'd like to load, or 'quit' to return to the previous menu."
       save_file = gets.chomp.downcase
       evaluate_load_menu_input(save_file)
@@ -119,8 +122,7 @@ module SaveManagementMenu
     end
 
     def open_erase_menu
-      clear_screen
-      Dir.children('saves').each { |savefile| puts savefile.delete_suffix('.yaml') }
+      refresh_save_menus_info
       puts "\nType the name of the save file you'd like to erase, or 'quit' to return to the previous menu"
       save_file = gets.chomp.downcase
       evaluate_erase_menu_input(save_file)
@@ -335,6 +337,7 @@ module GameTurnInterface
   end
 
   def print_guess_rejection_message(rejection_cause)
+    refresh_game_screen
     case rejection_cause
     when 'not a letter' then puts 'Incorrect input! Your guess must be a letter.'
     when 'already given' then puts 'You already gave that one. ;)'
@@ -360,7 +363,7 @@ module GameTurnInterface
   end
 
   def save_name_validity_response(validity)
-    refresh_game_screen
+    refresh_save_menus_info
     case validity
     when 'empty' then puts 'Invalid filename! Your file must have a name.'
     when 'forbidden'
@@ -378,6 +381,7 @@ module GameUserInputChecking
     case guess.downcase
     when 'quit' then 'quit'
     when 'save'
+      refresh_save_menus_info
       save_game
       'save' # Informs the calling method it should play another turn.
     else
@@ -437,7 +441,10 @@ module SavingMenu
   def save_game
     print_save_menu_message
     save_name = gets.chomp.downcase
-    return if save_name == 'quit'
+    if save_name == 'quit'
+      refresh_game_screen
+      return
+    end
 
     check_save_name_validity(save_name)
   end
@@ -463,16 +470,13 @@ class GameInstance
   include GameTurnInterface
   include SavingMenu
   require 'yaml'
-  @game_instances = 0
 
   class << self
     attr_accessor :game_instances
   end
 
   def initialize
-    self.class.game_instances += 1
     @mistakes_count = 0
-    @game_name = "game_#{self.class.game_instances}" # This will allow us to keep several numbered saves.
     @secret_word = pick_secret_word
     @correct_guesses = []
     @wrong_guesses = []
