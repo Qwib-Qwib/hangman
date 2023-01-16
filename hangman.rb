@@ -39,6 +39,7 @@ module SaveManagementMenuInputChecking
   private
 
   def evaluate_savefile_menu_option(menu_option)
+    refresh_save_menus_info
     if %w[load erase quit].include?(menu_option)
       case menu_option
       when 'load' then open_load_menu
@@ -140,9 +141,15 @@ module SaveManagementMenu
 
     def erase_savefile(save_file)
       File.delete("saves/#{save_file}")
-      puts "File erased!\nPress any key to continue."
-      press_any_key_to_continue
-      open_erase_menu
+      if Dir.empty?('saves') == false
+        puts "File erased!\nPress any key to continue."
+        press_any_key_to_continue
+        open_erase_menu
+      else
+        puts "File erased!\nSave folder empty. Sending you back to the main menu...\nPress any key to continue."
+        press_any_key_to_continue
+        MainMenu.display_main_menu
+      end
     end
   end
 end
