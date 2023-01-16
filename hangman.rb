@@ -57,6 +57,7 @@ module SaveManagementMenuInputChecking
   end
 
   def evaluate_load_menu_input(save_file)
+    refresh_save_menus_info
     if illegal_character?(save_file) == true || save_file.empty?
       forbid_special_characters_and_names('load')
     elsif save_file == 'quit'
@@ -69,6 +70,7 @@ module SaveManagementMenuInputChecking
   end
 
   def evaluate_erase_menu_input(save_file)
+    refresh_save_menus_info
     if illegal_character?(save_file) || save_file.empty?
       forbid_special_characters_and_names('erase')
     elsif save_file == 'quit'
@@ -81,18 +83,26 @@ module SaveManagementMenuInputChecking
   end
 
   def forbid_special_characters_and_names(menu_option)
-    puts "Invalid filename!\nForbidden characters: \" \' \` \\ /\nEmpty file names are also forbidden."
+    puts "\nInvalid filename!\nForbidden characters: \" \' \` \\ /\nEmpty file names are also forbidden."
     case menu_option
-    when 'load' then evaluate_load_menu_input(gets.chomp.downcase)
-    when 'erase' then evaluate_erase_menu_input(gets.chomp.downcase)
+    when 'load'
+      puts "Type the name of the save file you'd like to load, or 'quit' to return to the previous menu."
+      evaluate_load_menu_input(gets.chomp.downcase)
+    when 'erase'
+      puts "Type the name of the save file you'd like to erase, or 'quit' to return to the previous menu"
+      evaluate_erase_menu_input(gets.chomp.downcase)
     end
   end
 
   def reject_nonexistent_savefile(menu_option)
-    puts 'No such save file!'
+    puts "\nNo such save file!"
     case menu_option
-    when 'load' then evaluate_load_menu_input(gets.chomp.downcase)
-    when 'erase' then evaluate_erase_menu_input(gets.chomp.downcase)
+    when 'load'
+      puts "Type the name of the save file you'd like to load, or 'quit' to return to the previous menu."
+      evaluate_load_menu_input(gets.chomp.downcase)
+    when 'erase'
+      puts "Type the name of the save file you'd like to erase, or 'quit' to return to the previous menu"
+      evaluate_erase_menu_input(gets.chomp.downcase)
     end
   end
 end
@@ -188,6 +198,8 @@ class MainMenu
       when '2' then SaveManagementMenu.open_savefile_menu # The reference makes including the module useless.
       when '3' then puts 'Quitting game now!'
       else
+        clear_screen
+        print_main_menu_instruction
         puts 'Incorrect input!'
         main_menu_user_input(saves_detected)
       end
@@ -306,13 +318,13 @@ module GameTurnInterface
   private
 
   def print_game_info
-    print_word
+    print_word_during_game
     drawing.print_drawing
     puts latest_result_message if latest_result_message != ''
     print_wrong_guesses
   end
 
-  def print_word
+  def print_word_during_game
     secret_word.each_char do |char|
       if correct_guesses.include?(char)
         print " #{char} "
@@ -345,6 +357,7 @@ module GameTurnInterface
   end
 
   def print_end_screen
+    print_word_on_game_end
     drawing.print_drawing if mistakes_count == 12
     print_end_message(mistakes_count)
   end
@@ -356,6 +369,11 @@ module GameTurnInterface
     end
     puts 'Press any key to continue.'
     press_any_key_to_continue
+  end
+
+  def print_word_on_game_end
+    secret_word.each_char { |char| print " #{char} " }
+    puts ''
   end
 
   def print_save_menu_message
